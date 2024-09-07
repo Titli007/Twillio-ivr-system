@@ -10,25 +10,35 @@ const client = twilio(accountSid, authToken);
 
 const webhookUrl = process.env.WEBHOOK_URL;
 
+const app = express();
+app.use(express.json())
 
-function getPersonalizedLink() {
-  return "https://v.personaliz.ai/?id=9b697c1a&uid=fe141702f66c760d85ab&mode=test";
-}
 
-async function createCall() {
+app.post('/initiate-call', async (req, res) => {
+  console.log(req.body)
+  const userPhoneNumber = req.body.phone; // Expecting user's phone number in payload
+
+  
+
+  if (!userPhoneNumber) {
+    return res.status(400).json({ error: 'User phone number is required' });
+  }
+
   try {
     const call = await client.calls.create({
-      to: process.env.USER_PHONE_NO,
-      from: process.env.TWILLIO_PHONE_NO,
-      url: `${webhookUrl}/outbound`,
+      to: userPhoneNumber,
+      from: process.env.TWILLIO_PHONE_NO,  // Your Twilio phone number
+      url: `${webhookUrl}/outbound`,  // Your Twilio webhook URL (handle outbound call here)
     });
+
     console.log(`Call initiated: ${call.sid}`);
+    res.status(200).json({ message: 'Call initiated', callSid: call.sid });
   } catch (error) {
     console.error('Error initiating call:', error);
+    res.status(500).json({ error: 'Failed to initiate call' });
   }
-}
+});
 
-const app = express();
 
 app.use(bodyParser.urlencoded({ extended: false }));
 
@@ -50,6 +60,10 @@ app.post('/outbound', (request, response) => {
   response.type('text/xml');
   response.send(twiml.toString());
 });
+
+function getPersonalizedLink() {
+  return "https://v.personaliz.ai/?id=9b697c1a&uid=fe141702f66c760d85ab&mode=test";
+}
 
 app.post('/gather', (request, response) => {
   const twiml = new VoiceResponse();
@@ -91,5 +105,4 @@ app.post('/gather', (request, response) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Twilio IVR app listening on http://localhost:${PORT}`);
-  createCall();  // Initiate the call when the server starts
 });
